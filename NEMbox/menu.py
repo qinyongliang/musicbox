@@ -15,6 +15,7 @@ import os
 import signal
 import webbrowser
 import locale
+import platform
 from collections import namedtuple
 
 from future.builtins import range, str
@@ -28,6 +29,10 @@ from .utils import notify
 from .storage import Storage
 from .cache import Cache
 from . import logger
+
+# from .hotKey import HotKeyApp
+# from AppKit import NSApplicationActivationPolicyProhibited
+# from PyObjCTools import AppHelper
 
 
 locale.setlocale(locale.LC_ALL, "")
@@ -121,7 +126,7 @@ class Menu(object):
         self.countdown_start = time.time()
         self.countdown = -1
         self.is_in_countdown = False
-
+        
     @property
     def user(self):
         return self.storage.database["user"]
@@ -187,12 +192,19 @@ class Menu(object):
         self.ui.screen.clear()
         self.ui.screen.refresh()
 
+    def stop(self):
+        try:
+            if self.hotkey != None:
+                self.hotkey.stop()
+            self.player.stop()
+            self.cache.quit()
+            self.storage.save()
+            curses.endwin()
+        finally:
+            sys.exit()
+        
     def send_kill(self, signum, fram):
-        self.player.stop()
-        self.cache.quit()
-        self.storage.save()
-        curses.endwin()
-        sys.exit()
+        self.stop()
 
     def update_alert(self, version):
         latest = Menu().check_version()
@@ -223,20 +235,30 @@ class Menu(object):
         except KeyError as e:
             return 0
 
+    def init_mac_hotkey(self):
+            # app = HotKeyApp.sharedApplication()
+            # app.setMusicMenu(self)
+            # app.setActivationPolicy_(NSApplicationActivationPolicyProhibited)
+            # AppHelper.runEventLoop()
+        import ctypes
+        import pkg_resources
+        libPath = pkg_resources.resource_filename(__name__, "HotKey.lib")
+        self.hotkey = ctypes.cdll.LoadLibrary(libPath)
+        playControll = ctypes.CFUNCTYPE(None)(self.pause)
+        nextControll = ctypes.CFUNCTYPE(None)(self.next_song)
+        lastControll = ctypes.CFUNCTYPE(None)(self.previous_song)
+        self.hotkey.setContorllFunc(playControll,nextControll,lastControll)
+        self.hotkey.setup()
+
     def start_fork(self, version):
         pid = os.fork()
         if pid == 0:
             Menu().update_alert(version)
         else:
-            Menu().start()
-
-    def play_pause(self):
-        if self.player.is_empty:
-            return
-        if not self.player.playing_flag:
-            self.player.resume()
-        else:
-            self.player.pause()
+            menu = Menu()
+            threading.Thread(target=menu.start).start()
+            if platform.system() == "Darwin":
+                menu.init_mac_hotkey()
 
     def next_song(self):
         if self.player.is_empty:
@@ -247,6 +269,41 @@ class Menu(object):
         if self.player.is_empty:
             return
         self.player.prev()
+
+
+    def pause(self):
+        if not self.datalist:
+            return
+        idx = self.index
+        datatype = self.datatype
+        if idx < 0 or idx >= len(self.datalist):
+            self.player.info["idx"] = 0
+
+        # If change to a new playing list. Add playing list and play.
+        if datatype == "songs":
+            self.player.new_player_list("songs", self.title, self.datalist, -1)
+            self.player.end_callback = None
+            self.player.play_or_pause(idx, self.at_playing_list)
+            self.at_playing_list = True
+        elif datatype == "djchannels":
+            self.player.new_player_list(
+                "djchannels", self.title, self.datalist, -1
+            )
+            self.player.end_callback = None
+            self.player.play_or_pause(idx, self.at_playing_list)
+            self.at_playing_list = True
+        elif datatype == "fmsongs":
+            self.player.change_mode(0)
+            self.player.new_player_list(
+                "fmsongs", self.title, self.datalist, -1
+            )
+            self.player.end_callback = self.fm_callback
+            self.player.play_or_pause(idx, self.at_playing_list)
+            self.at_playing_list = True
+        else:
+            # 所在列表类型不是歌曲
+            isNotSongs = True
+            self.player.play_or_pause(self.player.info["idx"], isNotSongs)
 
     def start(self):
         self.menu_starts = time.time()
@@ -443,38 +500,7 @@ class Menu(object):
 
             # 播放、暂停
             elif key == ord(" "):
-                if not self.datalist:
-                    continue
-
-                if idx < 0 or idx >= len(self.datalist):
-                    self.player.info["idx"] = 0
-
-                # If change to a new playing list. Add playing list and play.
-                if datatype == "songs":
-                    self.player.new_player_list("songs", self.title, self.datalist, -1)
-                    self.player.end_callback = None
-                    self.player.play_or_pause(idx, self.at_playing_list)
-                    self.at_playing_list = True
-                elif datatype == "djchannels":
-                    self.player.new_player_list(
-                        "djchannels", self.title, self.datalist, -1
-                    )
-                    self.player.end_callback = None
-                    self.player.play_or_pause(idx, self.at_playing_list)
-                    self.at_playing_list = True
-                elif datatype == "fmsongs":
-                    self.player.change_mode(0)
-                    self.player.new_player_list(
-                        "fmsongs", self.title, self.datalist, -1
-                    )
-                    self.player.end_callback = self.fm_callback
-                    self.player.play_or_pause(idx, self.at_playing_list)
-                    self.at_playing_list = True
-                else:
-                    # 所在列表类型不是歌曲
-                    isNotSongs = True
-                    self.player.play_or_pause(self.player.info["idx"], isNotSongs)
-
+                self.pause()
             # 加载当前播放列表
             elif key == ord("p"):
                 self.show_playing_song()
@@ -647,12 +673,7 @@ class Menu(object):
                 self.step,
                 self.menu_starts,
             )
-
-        self.player.stop()
-        self.cache.quit()
-        self.storage.save()
-        curses.endwin()
-
+        self.stop()
     def dispatch_enter(self, idx):
         # The end of stack
         netease = self.api

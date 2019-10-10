@@ -30,8 +30,9 @@ ________     __________________________  _____ _     _
 
 """
 import os
-
+import platform
 from setuptools import setup, find_packages
+from distutils.command.build_py import build_py
 
 here = os.path.abspath(os.path.dirname(__file__))
 about = {}  # type: dict
@@ -41,6 +42,17 @@ with open(os.path.join(here, "NEMbox", "__version__.py"), "r") as f:
 
 with open("README.md", "r") as f:
     long_description = f.read()
+
+data_files = None
+if platform.system() == "Darwin":
+    data_files= [("NEMbox", ['NEMbox/osx/HotKey.lib'])]
+
+# class OsxHotKeyBuild(build_py):
+#     def run(self):
+#         if platform.system() == "Darwin":
+#             os.system("gcc -fobjc-arc -framework Cocoa -x objective-c -shared -o NEMbox/osx/HotKey.lib NEMbox/osx/hotkey.c")
+#             data_files.append(("NEMbox", ['NEMbox/osx/HotKey.lib']))
+#         build_py.run(self)
 
 setup(
     name=about["__title__"],
@@ -53,6 +65,8 @@ setup(
     long_description_content_type="text/markdown",
     license=about["__license__"],
     packages=find_packages(),
+    data_files=data_files,
+    # cmdclass={'build_py': OsxHotKeyBuild},
     install_requires=["requests-cache", "pycryptodomex", "future"],
     entry_points={"console_scripts": ["musicbox = NEMbox.__main__:start"]},
     keywords=["music", "netease", "cli", "player"],
