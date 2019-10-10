@@ -30,11 +30,6 @@ from .storage import Storage
 from .cache import Cache
 from . import logger
 
-# from .hotKey import HotKeyApp
-# from AppKit import NSApplicationActivationPolicyProhibited
-# from PyObjCTools import AppHelper
-
-
 locale.setlocale(locale.LC_ALL, "")
 
 log = logger.getLogger(__name__)
@@ -236,10 +231,6 @@ class Menu(object):
             return 0
 
     def init_mac_hotkey(self):
-            # app = HotKeyApp.sharedApplication()
-            # app.setMusicMenu(self)
-            # app.setActivationPolicy_(NSApplicationActivationPolicyProhibited)
-            # AppHelper.runEventLoop()
         import ctypes
         import pkg_resources
         libPath = pkg_resources.resource_filename(__name__, "HotKey.lib")
