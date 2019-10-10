@@ -47,12 +47,11 @@ data_files = None
 if platform.system() == "Darwin":
     data_files= [("NEMbox", ['NEMbox/osx/HotKey.lib'])]
 
-# class OsxHotKeyBuild(build_py):
-#     def run(self):
-#         if platform.system() == "Darwin":
-#             os.system("gcc -fobjc-arc -framework Cocoa -x objective-c -shared -o NEMbox/osx/HotKey.lib NEMbox/osx/hotkey.c")
-#             data_files.append(("NEMbox", ['NEMbox/osx/HotKey.lib']))
-#         build_py.run(self)
+class OsxHotKeyBuild(build_py):
+    def run(self):
+        if platform.system() == "Darwin":
+            os.system("gcc -fobjc-arc -framework Cocoa -x objective-c -shared -o NEMbox/osx/HotKey.lib NEMbox/osx/hotkey.c")
+        build_py.run(self)
 
 setup(
     name=about["__title__"],
@@ -66,7 +65,7 @@ setup(
     license=about["__license__"],
     packages=find_packages(),
     data_files=data_files,
-    # cmdclass={'build_py': OsxHotKeyBuild},
+    cmdclass={'build_py': OsxHotKeyBuild},
     install_requires=["requests-cache", "pycryptodomex", "future"],
     entry_points={"console_scripts": ["musicbox = NEMbox.__main__:start"]},
     keywords=["music", "netease", "cli", "player"],
