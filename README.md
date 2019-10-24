@@ -88,7 +88,7 @@
 
 ### Git clone安装master分支（*nix系统）
 
-    $ git clone https://github.com/darknessomi/musicbox.git && cd musicbox
+    $ git clone https://github.com/qinyongliang/musicbox.git && cd musicbox
     $ python(3) setup.py install
 
 ### macOS安装
